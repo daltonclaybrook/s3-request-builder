@@ -1,25 +1,32 @@
+import HTTP
 import Vapor
 
 extension Droplet {
     func setupRoutes() throws {
-        get("hello") { req in
-            var json = JSON()
-            try json.set("hello", "world")
-            return json
+        self.post("/", handler: handleRequest)
+    }
+    
+    // Routes
+    
+    private func handleRequest(_ request: Request) throws -> ResponseRepresentable {
+        guard let formData = request.formData,
+            let file = formData["file"],
+            let filename = file.filename else {
+            throw Abort.badRequest
         }
-
-        get("plaintext") { req in
-            return "Hello, world!"
-        }
-
-        // response to requests to /info domain
-        // with a description of the request
-        get("info") { req in
-            return req.description
-        }
-
-        get("description") { req in return req.description }
         
-        try resource("posts", PostController.self)
+        let accessKeyId = "<AWS access key id>"
+        let secretAccessKey = "<AWS secret access key>"
+        let bucket = "<s3 bucket>"
+        let region = "us-east-1"
+        let builder = S3RequestBuilder(accessKeyId: accessKeyId,
+                                       secretAccessKey: secretAccessKey,
+                                       s3Bucket: bucket,
+                                       region: region)
+        
+        let method = Method.put
+        let path = "/files/\(filename)"
+        let request = try builder.generateRequest(forMethod: method, path: path, body: file.part.body)
+        return try self.client.request(method, request.uri, request.headers, request.body)
     }
 }
